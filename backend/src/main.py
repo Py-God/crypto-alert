@@ -4,8 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import settings
 
-# Import auth router - THIS IS CRUCIAL
+# Import routers
 from src.auth.router import router as auth_router
+from src.alerts.router import router as alerts_router
 
 # Create app
 app = FastAPI(
@@ -42,6 +43,7 @@ async def health_check():
 
 # INCLUDE AUTH ROUTER - THIS LINE IS CRITICAL
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["Alerts"])
 
 # Add this line for debugging
 @app.on_event("startup")

@@ -20,8 +20,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships (comment out if Alert model doesn't exist yet)
-    # alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
+    # Relationships
+    alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, username={self.username}, email={self.email})>"

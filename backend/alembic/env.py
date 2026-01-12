@@ -12,7 +12,7 @@ from src.database import Base
 
 # Import all models so Alembic can detect them
 from src.auth.models import User  # Add this
-# from src.alerts.models import Alert, AlertTrigger  # Add when you create these
+from src.alerts.models import Alert  # Add when you create these
 
 # this is the Alembic Config object
 config = context.config
