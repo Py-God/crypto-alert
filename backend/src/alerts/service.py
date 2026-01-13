@@ -17,8 +17,13 @@ logger = structlog.get_logger()
 
 
 async def get_alert_by_id(db: AsyncSession, alert_id: int) -> Optional[Alert]:
-    """Get alert by ID"""
-    query = select(Alert).where(Alert.id == alert_id)
+    """Get alert by ID (excluding deleted)"""
+    query = select(Alert).where(
+        and_(
+            Alert.id == alert_id,
+            Alert.status != AlertStatus.DELETED  # ← Exclude deleted
+        )
+    )
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
@@ -30,8 +35,13 @@ async def get_user_alerts(
     skip: int = 0,
     limit: int = 100
 ) -> List[Alert]:
-    """Get all alerts for a user with optional filtering"""
-    query = select(Alert).where(Alert.user_id == user_id)
+    """Get all alerts for a user (excluding deleted)"""
+    query = select(Alert).where(
+        and_(
+            Alert.user_id == user_id,
+            Alert.status != AlertStatus.DELETED  # ← Exclude deleted
+        )
+    )
     
     if status:
         query = query.where(Alert.status == status)
@@ -51,8 +61,13 @@ async def count_user_alerts(
     user_id: int,
     status: Optional[AlertStatus] = None
 ) -> int:
-    """Count alerts for a user"""
-    query = select(func.count(Alert.id)).where(Alert.user_id == user_id)
+    """Count alerts for a user (excluding deleted)"""
+    query = select(func.count(Alert.id)).where(
+        and_(
+            Alert.user_id == user_id,
+            Alert.status != AlertStatus.DELETED  # ← Exclude deleted
+        )
+    )
     
     if status:
         query = query.where(Alert.status == status)
@@ -69,7 +84,7 @@ async def create_alert(
 ) -> Alert:
     """Create a new alert"""
     
-    # Check if user has reached alert limit
+    # Check if user has reached alert limit (only count non-deleted)
     active_count = await count_user_alerts(
         db,
         user_id,
@@ -149,8 +164,12 @@ async def verify_alert_ownership(alert: Alert, user_id: int) -> None:
 
 
 async def get_alert_stats(db: AsyncSession, user_id: int) -> dict:
-    """Get statistics about user's alerts"""
+    """Get statistics about user's alerts (excluding deleted)"""
+    
+    # Count all non-deleted alerts
     total = await count_user_alerts(db, user_id)
+    
+    # Count by specific statuses
     active = await count_user_alerts(db, user_id, AlertStatus.ACTIVE)
     triggered = await count_user_alerts(db, user_id, AlertStatus.TRIGGERED)
     paused = await count_user_alerts(db, user_id, AlertStatus.PAUSED)

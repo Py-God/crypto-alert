@@ -9,10 +9,12 @@ from src.auth.models import User
 from src.alerts import schemas, service
 from src.alerts.constants import AlertStatus
 from src.alerts.exceptions import AlertNotFoundException
+from src.market_data import service as market_service
 
 router = APIRouter()
 
 
+# Update the create_alert function:
 @router.post(
     "",
     response_model=schemas.AlertResponse,
@@ -24,19 +26,18 @@ async def create_alert(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Create a new price alert for a stock or cryptocurrency.
+    """Create a new price alert with current price"""
     
-    - **symbol**: Stock ticker (e.g., AAPL) or crypto symbol (e.g., BTC)
-    - **asset_type**: Either "stock" or "crypto"
-    - **alert_type**: "above", "below", or "percent_change"
-    - **target_price**: Price threshold for the alert
-    - **percent_change**: Required if alert_type is "percent_change"
-    
-    Returns the created alert with ID and timestamps.
-    """
-    # TODO: Fetch current price from market data API
-    current_price = None  # Will implement in market data module
+    # Fetch current price from market data
+    try:
+        price_data = await market_service.get_current_price(
+            alert_data.symbol,
+            alert_data.asset_type
+        )
+        current_price = price_data.price
+    except Exception as e:
+        # If we can't get price, still create alert but without current_price
+        current_price = None
     
     alert = await service.create_alert(
         db,

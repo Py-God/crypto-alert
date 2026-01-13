@@ -1,21 +1,59 @@
 # src/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from src.config import settings
+from src.database import engine, Base
+from src.cache.redis_client import redis_client  # ← Add this import
 
 # Import routers
 from src.auth.router import router as auth_router
 from src.alerts.router import router as alerts_router
+from src.market_data.router import router as market_data_router
 
-# Create app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events"""
+    # Startup
+    print("🚀 Starting application...")
+    
+    # Initialize database
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("✅ Database initialized")
+    
+    # Connect to Redis
+    await redis_client.connect()
+    if redis_client.is_connected():
+        print("✅ Redis connected")
+    else:
+        print("⚠️  Redis connection failed - running without cache")
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down application...")
+    
+    # Disconnect Redis
+    await redis_client.disconnect()
+    
+    # Dispose database engine
+    await engine.dispose()
+    
+    print("✅ Shutdown complete")
+
+
+# Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Real-Time Stock/Crypto Price Alert System",
+    lifespan=lifespan,
 )
 
-# CORS
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -24,7 +62,8 @@ app.add_middleware(
     allow_headers=settings.cors_headers,
 )
 
-# Root endpoint
+
+# Health check
 @app.get("/")
 async def root():
     return {
@@ -33,22 +72,29 @@ async def root():
         "status": "running"
     }
 
-# Health check
+
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "app_name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "redis_connected": redis_client.is_connected()  # ← Add this
     }
 
-# INCLUDE AUTH ROUTER - THIS LINE IS CRITICAL
+
+# Include routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["Alerts"])
+app.include_router(market_data_router, prefix="/api/v1/market", tags=["Market Data"])
 
-# Add this line for debugging
-@app.on_event("startup")
-async def startup_event():
-    print("✅ App started")
-    print(f"📋 Registered routes:")
-    for route in app.routes:
-        print(f"  {route.path}")
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "src.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+    )
