@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
     ALLOWED_METHODS: str = "GET,POST,PUT,DELETE,PATCH"
     ALLOWED_HEADERS: str = "*"
+
+    # Email Configuration
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 465
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "Stock Crypto Alerts"
+    SMTP_TLS: bool = True
     
     model_config = SettingsConfigDict(
         env_file=".env",

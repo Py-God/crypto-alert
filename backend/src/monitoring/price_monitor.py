@@ -77,8 +77,13 @@ class PriceMonitor:
             await session.commit()
     
     async def _get_active_alerts(self, session: AsyncSession) -> List[Alert]:
-        """Get all active alerts from database"""
-        query = select(Alert).where(Alert.status == AlertStatus.ACTIVE)
+        """Get all active alerts from database with user relationship"""
+        from sqlalchemy.orm import selectinload  # Add this import at top
+        
+        query = select(Alert).options(
+            selectinload(Alert.user)  # ← Eager load user relationship
+        ).where(Alert.status == AlertStatus.ACTIVE)
+        
         result = await session.execute(query)
         return result.scalars().all()
     

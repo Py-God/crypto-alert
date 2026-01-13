@@ -17,6 +17,7 @@ from src.auth.router import router as auth_router
 from src.alerts.router import router as alerts_router
 from src.market_data.router import router as market_data_router
 from src.websocket.router import router as websocket_router
+from src.notifications.router import router as notifications_router
 
 
 @asynccontextmanager
@@ -111,6 +112,7 @@ app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(market_data_router, prefix="/api/v1/market", tags=["Market Data"])
 app.include_router(websocket_router, prefix="/api/v1/ws", tags=["WebSocket"])
+app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["Notifications"])
 
 
 if __name__ == "__main__":

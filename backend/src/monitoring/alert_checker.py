@@ -5,6 +5,7 @@ import structlog
 
 from src.alerts.models import Alert, AlertType, AlertStatus
 from src.websocket.manager import manager
+from src.notifications.email_service import email_service  # ← Add this
 
 logger = structlog.get_logger()
 
@@ -14,16 +15,7 @@ class AlertChecker:
     
     @staticmethod
     def should_trigger_alert(alert: Alert, current_price: float) -> bool:
-        """
-        Check if an alert should be triggered
-        
-        Args:
-            alert: Alert object
-            current_price: Current price of the asset
-        
-        Returns:
-            True if alert should be triggered
-        """
+        """Check if an alert should be triggered"""
         if alert.status != AlertStatus.ACTIVE:
             return False
         
@@ -90,10 +82,23 @@ class AlertChecker:
                 alert_type=alert.alert_type.value
             )
         
-        # Email notification (to be implemented later)
+        # Email notification
         if alert.notify_email:
-            logger.info("email_notification_queued", alert_id=alert.id)
-            # TODO: Implement email sending
+            try:
+                await email_service.send_alert_email(
+                    to_email=alert.user.email,  # ← Access user relationship
+                    user_name=alert.user.username,
+                    symbol=alert.symbol,
+                    asset_type=alert.asset_type.value,
+                    alert_type=alert.alert_type.value,
+                    current_price=current_price,
+                    target_price=alert.target_price,
+                    message=message,
+                    triggered_at=datetime.utcnow().isoformat()
+                )
+                logger.info("email_notification_sent", alert_id=alert.id, user=alert.user.email)
+            except Exception as e:
+                logger.error("email_notification_failed", alert_id=alert.id, error=str(e))
         
         # SMS notification (to be implemented later)
         if alert.notify_sms:
