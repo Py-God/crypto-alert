@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .messages {
+            height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .message.connected { background: #d4edda; }
+        .message.price_update { background: #cce5ff; }
+        .message.alert_triggered { background: #fff3cd; }
+        .message.error { background: #f8d7da; }
+        input, button {
+            margin: 5px;
+            padding: 8px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebSocket Test Client</h1>
+        
+        <div id="status" class="status disconnected">
+            Status: Disconnected
+        </div>
+        
+        <div>
+            <input type="text" id="token" placeholder="Enter access token" style="width: 400px;">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+        
+        <div>
+            <input type="text" id="symbol" placeholder="Symbol (e.g., BTC)" value="BTC">
+            <button onclick="subscribe()">Subscribe</button>
+            <button onclick="unsubscribe()">Unsubscribe</button>
+            <button onclick="getSubscriptions()">Get Subscriptions</button>
+        </div>
+        
+        <div>
+            <button onclick="ping()">Send Ping</button>
+            <button onclick="clearMessages()">Clear Messages</button>
+        </div>
+        
+        <div class="messages" id="messages"></div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        function connect() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('Please enter access token');
+                return;
+            }
+
+            const wsUrl = `ws://localhost:8000/api/v1/ws/connect?token=${token}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                updateStatus('connected');
+                addMessage('System', 'Connected to server', 'connected');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Received:', data);
+                
+                const type = data.type;
+                const messageClass = type.replace('_', ' ');
+                
+                if (type === 'price_update') {
+                    const priceData = data.data;
+                    addMessage(
+                        'Price Update',
+                        `${priceData.symbol}: $${priceData.price} (${priceData.asset_type})`,
+                        type
+                    );
+                } else if (type === 'alert_triggered') {
+                    const alertData = data.data;
+                    addMessage(
+                        'Alert',
+                        `🔔 ${alertData.message}`,
+                        type
+                    );
+                } else {
+                    addMessage(type, JSON.stringify(data, null, 2), type);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addMessage('Error', 'WebSocket error occurred', 'error');
+            };
+
+            ws.onclose = () => {
+                updateStatus('disconnected');
+                addMessage('System', 'Disconnected from server', 'error');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function subscribe() {
+            if (!ws) {
+                alert('Not connected');
+                return;
+            }
+            const symbol = document.getElementById('symbol').value.toUpperCase();
+            ws.send(JSON.stringify({
+                type: 'subscribe',
+                symbol: symbol
+            }));
+        }
+
+        function unsubscribe() {
+            if (!ws) {
+                alert('Not connected');
+                return;
+            }
+            const symbol = document.getElementById('symbol').value.toUpperCase();
+            ws.send(JSON.stringify({
+                type: 'unsubscribe',
+                symbol: symbol
+            }));
+        }
+
+        function getSubscriptions() {
+            if (!ws) {
+                alert('Not connected');
+                return;
+            }
+            ws.send(JSON.stringify({
+                type: 'get_subscriptions'
+            }));
+        }
+
+        function ping() {
+            if (!ws) {
+                alert('Not connected');
+                return;
+            }
+            ws.send(JSON.stringify({
+                type: 'ping',
+                timestamp: new Date().toISOString()
+            }));
+        }
+
+        function updateStatus(status) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+        }
+
+        function addMessage(title, content, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `<strong>${title}:</strong> ${content}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

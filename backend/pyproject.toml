@@ -19,4 +19,6 @@ dependencies = [
     "python-binance>=1.0.34",
     "httpx>=0.28.1",
     "aiohttp>=3.13.3",
+    "websockets>=15.0.1",
+    "python-socketio>=5.16.0",
 ]

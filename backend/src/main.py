@@ -1,4 +1,7 @@
 # src/main.py
+from fastapi.responses import HTMLResponse
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -11,6 +14,7 @@ from src.cache.redis_client import redis_client  # ← Add this import
 from src.auth.router import router as auth_router
 from src.alerts.router import router as alerts_router
 from src.market_data.router import router as market_data_router
+from src.websocket.router import router as websocket_router
 
 
 @asynccontextmanager
@@ -79,14 +83,23 @@ async def health_check():
         "status": "healthy",
         "app_name": settings.APP_NAME,
         "version": settings.APP_VERSION,
-        "redis_connected": redis_client.is_connected()  # ← Add this
+        "redis_connected": redis_client.is_connected()
     }
+
+@app.get("/ws-test", response_class=HTMLResponse)
+async def websocket_test_page():
+    """WebSocket test page"""
+    html_path = Path("templates/websocket_test.html")
+    if html_path.exists():
+        return html_path.read_text()
+    return "<h1>Test page not found</h1>"
 
 
 # Include routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(market_data_router, prefix="/api/v1/market", tags=["Market Data"])
+app.include_router(websocket_router, prefix="/api/v1/ws", tags=["WebSocket"])
 
 
 if __name__ == "__main__":
