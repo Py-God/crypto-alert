@@ -1,14 +1,16 @@
 # src/main.py
-from fastapi.responses import HTMLResponse
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from src.config import settings
 from src.database import engine, Base
-from src.cache.redis_client import redis_client  # ← Add this import
+from src.cache.redis_client import redis_client
+
+# Import monitoring
+from src.monitoring.scheduler import start_scheduler, stop_scheduler
 
 # Import routers
 from src.auth.router import router as auth_router
@@ -35,10 +37,18 @@ async def lifespan(app: FastAPI):
     else:
         print("⚠️  Redis connection failed - running without cache")
     
+    # Start background monitoring
+    await start_scheduler()  # ← Add this
+    print("✅ Background monitoring started")
+    
     yield
     
     # Shutdown
     print("🛑 Shutting down application...")
+    
+    # Stop monitoring
+    await stop_scheduler()  # ← Add this
+    print("✅ Background monitoring stopped")
     
     # Disconnect Redis
     await redis_client.disconnect()
@@ -85,6 +95,7 @@ async def health_check():
         "version": settings.APP_VERSION,
         "redis_connected": redis_client.is_connected()
     }
+
 
 @app.get("/ws-test", response_class=HTMLResponse)
 async def websocket_test_page():
